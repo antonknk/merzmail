@@ -61,26 +61,11 @@ get_mm <- function(baseurl = "https://www.friedrich-merz.de/merzmail/merzmail-",
 }
 
 
-mm_1_to_50 <- get_mm(index_from = 1, index_to = 50, wait = 1)
-mm_50_to_100 <- get_mm(index_from = 50, index_to = 100, wait = 0.5)
-mm_101_to152 <- get_mm(index_from = 101, index_to = 152, wait = 0.5)
+mm_scrape <- get_mm(index_from = 1, index_to = 152, wait = 1)
 
-lapply(mm_101_to152, function(x){
-  x %>% 
+mm <- mm_scrape
     tibble() %>% 
-    unnest_wider(col = 1, names_sep = "_")
-}) %>% 
-  bind_rows()
+    unnest_wider(col = 1)
 
-mm_1_to_50 %>% 
-  tibble() %>% 
-  unnest_wider(col = 1)
-
-mm_50_to_100 %>% 
-  tibble() %>% 
-  unnest_wider(col = 1)
-
-mm_101_to152 %>% 
-  tibble() %>% 
-  unnest_wider(col = 1)
+write.csv(mm, file = "mm_06-2023.csv")
 

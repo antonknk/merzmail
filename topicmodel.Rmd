@@ -1,0 +1,48 @@
+---
+title: "Merzmail Topics"
+author: "Anton Könneke"
+output: github_document
+---
+
+```{r}
+pacman::p_load(quanteda, readtext, seededlda, tidyverse)
+mm <- readtext(file = "texts/mm_06-2023.csv")
+```
+Now I add recode the dates.
+
+```{r}
+Sys.getlocale()
+Sys.setlocale(locale = "de_DE")
+mm <- mm %>% 
+  mutate(day = str_extract(date, "^\\d+"),
+         mon = str_match(date, "(?<=\\d{1}\\.\\s)\\w*")[,1],
+         year = str_extract(date, "\\d{4}$"),
+         date_fmt = paste(year, mon, day, sep =  "-"),
+         date_fmt2 = as.Date(date_fmt, format = "%Y-%B-%e")) 
+Sys.setlocale(locale = "en_US")
+```
+
+Clean tokens
+```{r}
+mm_corp <- corpus(mm, text_field = "fulltext")
+mm_tok <- tokens(mm_corp, remove_punct = TRUE, remove_numbers = TRUE, remove_symbol = TRUE)
+mm_tok <- tokens_remove(mm_tok, pattern = c(stopwords("de")))
+mm_dfmat <- dfm(mm_tok) %>% 
+              dfm_trim(min_termfreq = 0.8, termfreq_type = "quantile",
+                       max_docfreq = 0.1, docfreq_type = "prop")
+```
+
+Calculate LDA
+```{r}
+ldas <- lapply(seq(5, 20, 3), function(x){
+  textmodel_lda(mm_dfmat, k = x)
+})
+
+lapply(ldas, function(x) terms(x, 10))
+mm_dfmat$topic_k14 <- topics(ldas[[4]])
+
+terms(ldas[[4]], n = 3)
+seededlda::sizes(ldas[[4]])
+seededlda::terms(ldas[[4]])
+```
+

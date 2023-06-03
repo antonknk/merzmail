@@ -67,5 +67,5 @@ mm <- mm_scrape
     tibble() %>% 
     unnest_wider(col = 1)
 
-write.csv(mm, file = "mm_06-2023.csv")
+write.csv(mm, file = "texts/mm_06-2023.csv")
 

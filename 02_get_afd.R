@@ -93,7 +93,7 @@ get_afd_articles <- function(urls) {
   articles <- lapply(urls, function(url){
     html <- read_html(url)
     article <- list()
-    
+    article$url <- url
     article$headline <- html %>% 
       html_element("main") %>% 
       html_element("h2") %>% 
@@ -114,14 +114,15 @@ get_afd_articles <- function(urls) {
 }
 
 
-test  <- get_afd_articles(afd_posts[1:3])
-test %>% 
+get_afd_articles(afd_posts[[1]])
+afd1_200  <- get_afd_articles(afd_posts[1:200])
+get_afd_articles(afd_posts[[1]]) %>% 
   tibble() %>% 
   unnest_wider(1)  %>% 
-  unnest_wider(2, names_sep = "_") %>% 
+  unnest_wider(3, names_sep = "_") %>% 
   mutate(date = str_extract(text_1, "\\d+\\.\\s\\w*\\s\\d{4}"),
          author = str_match(headline, ".*(?=\\:\\s)")[[1]]) %>% 
   select(!text_1) %>% 
   rowwise() %>% 
-  mutate(fulltext = paste(c_across(starts_with("text")), collapse = "\n")) 
+  mutate(fulltext = paste(c_across(starts_with("text")), collapse = "\n")) %>% View()
 

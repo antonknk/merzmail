@@ -5,7 +5,13 @@ output: github_document
 ---
 
 ```{r}
-pacman::p_load(quanteda, readtext, seededlda, tidyverse)
+pacman::p_load(quanteda,
+               readtext,
+               seededlda,
+               tidyverse,
+               quanteda.textstats,
+               quanteda.textplots,
+               LSX)
 mm <- readtext(file = "texts/mm_06-2023.csv")
 ```
 Now I add recode the dates.
@@ -18,7 +24,8 @@ mm <- mm %>%
          mon = str_match(date, "(?<=\\d{1}\\.\\s)\\w*")[,1],
          year = str_extract(date, "\\d{4}$"),
          date_fmt = paste(year, mon, day, sep =  "-"),
-         date_fmt2 = as.Date(date_fmt, format = "%Y-%B-%e")) 
+         date_fmt2 = as.Date(date_fmt, format = "%Y-%B-%e")) %>% 
+  filter(!is.na(fulltext))
 Sys.setlocale(locale = "en_US")
 ```
 
@@ -45,4 +52,13 @@ terms(ldas[[4]], n = 3)
 seededlda::sizes(ldas[[4]])
 seededlda::terms(ldas[[4]])
 ```
+
+Calculate Keyness of last mail
+```{r}
+keyness <-
+  textstat_keyness(mm_dfmat, target = docid(mm_dfmat) == "mm_06-2023.csv.153")
+
+textplot_keyness(keyness)
+```
+
 

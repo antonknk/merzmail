@@ -68,4 +68,60 @@ afd_posts <- webpage %>%
   html_attr("href") 
 
 # SCRAPE ARTICLES  -------------------------------------------------------------
-afd_posts[[1]]
+articles <- list()
+html <- read_html(afd_posts[[1]])
+articles$headline <- html %>% 
+  html_element("main") %>% 
+  html_element("h2") %>% 
+  html_text()
+
+# atricles$date <- html %>% 
+#   html_element("main") %>% 
+#   html_element(".post-content") %>% 
+#   html_elements("p") %>% 
+#   .[[1]] %>% 
+#   html_text()
+
+articles$text <- html %>% 
+  html_element("main") %>% 
+  html_element(".post-content") %>% 
+  html_elements("p") %>% 
+  html_text()
+
+
+get_afd_articles <- function(urls) {
+  articles <- lapply(urls, function(url){
+    html <- read_html(url)
+    article <- list()
+    
+    article$headline <- html %>% 
+      html_element("main") %>% 
+      html_element("h2") %>% 
+      html_text()
+    
+    article$text <- html %>%
+      html_element("main") %>%
+      html_element(".post-content") %>%
+      html_elements("p") %>%
+      html_text()
+    
+    return(article)
+    
+    Sys.sleep(3)
+  })
+  return(articles)
+  
+}
+
+
+test  <- get_afd_articles(afd_posts[1:3])
+test %>% 
+  tibble() %>% 
+  unnest_wider(1)  %>% 
+  unnest_wider(2, names_sep = "_") %>% 
+  mutate(date = str_extract(text_1, "\\d+\\.\\s\\w*\\s\\d{4}"),
+         author = str_match(headline, ".*(?=\\:\\s)")[[1]]) %>% 
+  select(!text_1) %>% 
+  rowwise() %>% 
+  mutate(fulltext = paste(c_across(starts_with("text")), collapse = "\n")) 
+

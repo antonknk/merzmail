@@ -107,22 +107,28 @@ get_afd_articles <- function(urls) {
     
     return(article)
     
-    Sys.sleep(3)
+    Sys.sleep(3+runif(1))
   })
   return(articles)
   
 }
 
+# GET FULLTEXT -----------------------------------------------------------------
+stop("this will start a time-intensive scrape")
+afd_articles <- get_afd_articles(afd_posts)
 
-get_afd_articles(afd_posts[[1]])
-afd1_200  <- get_afd_articles(afd_posts[1:200])
-get_afd_articles(afd_posts[[1]]) %>% 
+# save to disk
+saveRDS(afd_articles, "texts/afd_articles.RDS")
+
+afd_articles <- afd_articles %>% 
   tibble() %>% 
   unnest_wider(1)  %>% 
   unnest_wider(3, names_sep = "_") %>% 
   mutate(date = str_extract(text_1, "\\d+\\.\\s\\w*\\s\\d{4}"),
-         author = str_match(headline, ".*(?=\\:\\s)")[[1]]) %>% 
+         author = str_match(headline, ".*(?=\\:\\s)")[,1]) %>% 
   select(!text_1) %>% 
   rowwise() %>% 
-  mutate(fulltext = paste(c_across(starts_with("text")), collapse = "\n")) %>% View()
+  mutate(fulltext = paste(c_across(starts_with("text")), collapse = "\n")) %>% 
+  select(!starts_with("text"))
 
+write_csv(afd_articles, "texts/afd_articles.csv")

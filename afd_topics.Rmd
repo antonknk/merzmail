@@ -1,0 +1,89 @@
+---
+title: "AfD Topics"
+author: "Anton Könneke"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(quanteda,
+               readtext,
+               seededlda,
+               tidyverse,
+               quanteda.textstats,
+               quanteda.textplots,
+               LSX)
+afdt <- readtext(file = "texts/afd_articles.csv")
+```
+
+Format dates
+```{r}
+Sys.setlocale(locale = "de_DE")
+afdt <- afdt %>% 
+  mutate(day = str_extract(date, "^\\d+"),
+         mon = str_match(date, "(?<=\\d{1}\\.\\s)\\w*")[,1],
+         year = str_extract(date, "\\d{4}$"),
+         date_fmt = paste(year, mon, day, sep =  "-"),
+         date_fmt2 = as.Date(date_fmt, format = "%Y-%B-%e")) %>% 
+  filter(!is.na(fulltext))
+Sys.setlocale(locale = "en_US")
+```
+
+prepare data
+```{r}
+afdt_corp <- corpus(afdt, text_field = "fulltext")
+afdt_tok <- tokens(afdt_corp, remove_punct = TRUE, remove_numbers = TRUE, remove_symbol = TRUE)
+afdt_tok <- tokens_remove(afdt_tok, pattern = c(stopwords("de")))
+afdt_tok <- tokens_remove(
+  afdt_tok,
+  pattern =
+    as.character(tokens(
+      paste0(unique(afdt$author), collapse = " "),
+      remove_punct = TRUE,
+      remove_numbers = TRUE,
+      remove_symbol = TRUE
+    ))
+)
+afdt_dfmat <- dfm(afdt_tok) %>% 
+              dfm_trim(min_termfreq = 0.8, termfreq_type = "quantile",
+                       max_docfreq = 0.1, docfreq_type = "prop")
+```
+
+topic model
+```{r}
+ldas <- lapply(seq(5, 20, 5), function(x){
+  textmodel_lda(afdt_dfmat, k = x)
+})
+
+lapply(ldas, function(x) terms(x, 10))
+
+lda15k <- ldas[[3]]
+
+
+```
+
+plot
+```{r}
+bind_cols(afdt,
+          as.data.frame(lda15k$theta)) %>% 
+  pivot_longer(starts_with("topic")) %>% 
+  filter(year >= 2020 & !is.na(date_fmt2)) %>% 
+  mutate(month = lubridate::floor_date(date_fmt2, "month"),
+         topic_n = as.integer(str_extract(name, "\\d+")),
+         facet = case_match(topic_n,
+                            c(1:3) ~ 1,
+                            c(4:7) ~ 2,
+                            c(8:11) ~3,
+                            c(11:15)~4,
+                            .default = NA)) %>% 
+  summarise(value = mean(value, na.rm = T), .by = c(month, name, facet)) %>% 
+  arrange(month) %>% 
+  mutate(value = zoo::rollmean(value, k = 3, fill = NA, align = "center"),
+         .by = name) %>% 
+  filter(facet == 1) %>%
+  ggplot(aes(month, value, color = name))+
+  geom_line()+
+  facet_wrap(~facet)+
+  theme_bw() 
+
+```
+

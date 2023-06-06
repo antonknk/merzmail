@@ -12,9 +12,10 @@ pacman::p_load(quanteda,
                quanteda.textstats,
                quanteda.textplots,
                LSX)
+devtools::load_all(path = "~/Documents/gh_forks/gendered")
 mm <- readtext(file = "texts/mm_06-2023.csv")
 ```
-Now I add recode the dates.
+Now I recode the dates.
 
 ```{r}
 Sys.getlocale()
@@ -27,6 +28,43 @@ mm <- mm %>%
          date_fmt2 = as.Date(date_fmt, format = "%Y-%B-%e")) %>% 
   filter(!is.na(fulltext))
 Sys.setlocale(locale = "en_US")
+```
+
+# Gender
+Friedrich Merz meint ja, dass die AfD durch jede gegenderte Nachrichtensendung 
+Prozente dazugewinnt. Aber wie häufig gendert eigentlich Friedrich Merz?
+
+```{r}
+mm <- mm %>% 
+  mutate(fulltext = str_squish(fulltext),
+         gender_stats = gendered::any_gender(fulltext)) 
+  
+
+mm <- mm %>% 
+  mutate(percent_gpair = gender_stats$percent_gendered_pair,
+         percent_gneut = gender_stats$percent_gendered_neutral,
+         percent_gsym = gender_stats$percent_gendered_symbol,
+         percent_g = gender_stats$total_gendered_percent) 
+
+mm %>% 
+  pivot_longer(starts_with("percent"), names_prefix = "percent_") %>% 
+  mutate(mon = floor_date(date_fmt2, "month")) %>% 
+  summarise(percent = mean(value, na.rm = T), .by = c(mon, name)) %>% 
+  ggplot(aes(mon, percent, color = name))+
+  geom_line(size = 1)+
+  theme_bw()+
+  labs(title = "Gendern in der #MerzMail")+
+  ylab("")+
+  scale_y_continuous(labels = scales::label_percent())+
+  xlab("")+
+  scale_color_manual("", values = c(2:5), 
+                            labels = c("Gendern insgesamt",
+                                       "Neutrale Ausdrücke",
+                                       "Nennung beider\nGeschlechter",
+                                       "Gendern mit Symbol"))+
+  coord_cartesian(xlim = as.Date(c("2022-06-01", "2023-06-05")))
+
+ggsave("plots/mmgender.png")
 ```
 
 Clean tokens

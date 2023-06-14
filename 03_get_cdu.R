@@ -116,3 +116,13 @@ cdu_press <- cdu_press %>%
   mutate(url = paste0("https://www.cducsu.de", url))
 
 cdu_full <- get_cdu_articles(cdu_press$url)
+
+# tidy and add author and date
+cdu_full <- cdu_full %>% 
+  tibble() %>% 
+  unnest_wider(1)
+
+cdu_articles <- left_join(cdu_press, cdu_full, by = "url")
+
+# save 
+write_csv(cdu_articles, "texts/cdu_articles.csv")

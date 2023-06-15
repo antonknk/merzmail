@@ -50,8 +50,11 @@ spd_urls_all <- bind_rows(spd_urls2, spd_urls)
 # SCAPRE ARTICLES --------------------------------------------------------------
 get_articles <- function(urls) {
   lapply(urls, function(url){
+    print(url)
     html <- read_html(url)
     article <- list()
+    
+    Sys.sleep(1)
     
     article$author <- html %>% 
       html_element("article") %>% 
@@ -91,12 +94,17 @@ get_articles <- function(urls) {
     article$url <- url
     
     return(article)
-    Sys.sleep(1.3)
+    
   }) %>% 
  bind_rows() 
 }
 
 # actually scrape it 
 tic()
-spd_articles <- get_articles(urls = spd_urls_all$urls)
+spd_articles100 <- get_articles(urls = spd_urls_all$urls[1:100])
 toc()
+
+tic()
+spd_articles101to500 <- get_articles(urls = spd_urls_all$urls[101:500])
+toc()
+

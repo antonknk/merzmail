@@ -1,0 +1,172 @@
+---
+title: "Similarity"
+author: "Anton Könneke"
+output:
+  html_document:
+    df_print: paged
+---
+
+In this article, I analyse whether the newsletter by conservative party leader 
+Friedrich Merz (he refers to it as '#merzmail') and the AfDs press releases converge 
+over time in rhetoric.
+
+# Data Preparation
+Before we can compare the press releases of CDU and AfD, the objects must be 
+imported and combined into a quanteda document.
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(pacman)
+p_load(tidyverse, quanteda, quanteda.textstats, readtext)
+cdu <- read_csv("texts/cdu_articles.csv")
+afd <- read_csv("texts/afd_articles.csv")
+```
+
+We can then take a first look at the data:
+```{r inspect_afd}
+head(afd)
+```
+For the AfD-Data, we have the source url, the author, the date, the fulltext and 
+the headline.
+
+```{r inspect_cdu}
+head(cdu)
+```
+For the CDU we also have a subtitle and a primer. We care only for the date and the fulltext for now, 
+but in order to make the data extendable, all column names should be harmonised by now already.
+
+```{r}
+colnames(afd)
+colnames(cdu)
+
+cdu <- cdu %>% 
+  rename(fulltext = text)
+```
+
+We also need to convert the strings holding the dates to date variables.
+```{r}
+cdu <- cdu %>% 
+  mutate(date = as.Date(date, format = "%d.%m.%Y"))
+
+Sys.setlocale(locale = "de_DE")
+afd <- afd %>% 
+  mutate(day = str_extract(date, "^\\d+"),
+         mon = str_match(date, "(?<=\\d{1}\\.\\s)\\w*")[,1],
+         year = str_extract(date, "\\d{4}$"),
+         date_fmt = paste(year, mon, day, sep =  "-"),
+         date = as.Date(date_fmt, format = "%Y-%B-%e")) 
+Sys.setlocale(locale = "en_US")
+```
+
+
+Now we can now merge the two datasets together.
+```{r merge}
+cdu$source = "CDU"
+afd$source = "AfD"
+
+press_rel <- bind_rows(cdu, afd)
+```
+
+By adding an identifier for the month, we can later on compare trends over time 
+on a month-grouped dataset that will offer sufficient observations for relatively 
+stable estimations.
+
+```{r add_month}
+press_rel <- press_rel %>% 
+  mutate(month = lubridate::round_date(date, "month"))
+```
+
+# Frequency
+Lets start by simply examining the activity of both parties over time:
+```{r frequency}
+party_colors <- 
+  scale_color_manual("Party",
+                     values = c("AfD" = "#009ee0", "CDU" =  "black"))
+
+press_rel %>% 
+  filter(month >= lubridate::ymd("2021-01-01")) %>% 
+  summarise(n = n(), .by = c(month, source)) %>% 
+  ggplot(aes(month, n, color = source))+
+  geom_line(size = 1)+
+  party_colors+
+  theme_bw()
+```
+
+# Keyness
+Now to the text analysis: lets begin by identifying words that are best able to
+predict whether we are reading a CDU-Text or an AfD-Text. The typical quanteda
+workflow is to create a corpus, clean the tokens and then create a document-
+feature matric (dfm).
+
+```{r clean}
+press_corp <- corpus(press_rel, text_field = "fulltext")
+press_tok <-
+  tokens(
+    press_corp,
+    remove_punct = TRUE,
+    remove_numbers = TRUE,
+    remove_symbol = TRUE
+  ) %>% 
+  tokens_tolower()
+press_tok <- tokens_remove(press_tok, pattern = c(stopwords("de")))
+press_tok <- tokens_remove(
+  press_tok,
+  pattern =
+    as.character(tokens(
+      paste0(unique(press_rel$author), collapse = " "),
+      remove_punct = TRUE,
+      remove_numbers = TRUE,
+      remove_symbol = TRUE
+    ) %>% 
+      tokens_tolower())
+)
+press_dfmat <- dfm(press_tok) %>% 
+              dfm_trim(min_termfreq = 10, termfreq_type = "count",
+                       max_docfreq = 0.1, docfreq_type = "prop")
+```
+
+
+```{r keyness, fig.retina=T, fig.asp=.9}
+textstat_keyness(dfm_group(press_dfmat, groups = source)) %>% 
+  quanteda.textplots::textplot_keyness()+
+  coord_cartesian(xlim = c(-1200, 1200))+
+  ggtitle("AfD vs. CDU Keyness")
+```
+
+# Similarity
+Lets now compute the similarity of the documents.
+```{r similarity}
+textstat_simil(dfm_group(press_dfmat, groups = source), 
+               margin = "documents", 
+               method = "correlation") %>% 
+  head()
+```
+There is a certain degree of similarity, but we can not really interpret it by now.
+After all, both sources talk in the same language about the same topic (politics).
+Hence, it is not surprising that we find some correlation. However, what we 
+can interpret are evolutions of this correlation. Does it change over time?
+
+```{r simil_time}
+press_dfmat$party_mon = paste(press_dfmat$source, press_dfmat$month, sep = "_")
+
+simil_mon <- textstat_simil(
+  dfm_weight(
+    dfm_group(press_dfmat, groups = party_mon),
+    "prop"),
+               margin = "documents", 
+               method = "correlation") %>% 
+  as.data.frame() %>% 
+  mutate(d1p = str_sub(document1, 1L, 3L),
+         d2p = str_sub(document2, 1L, 3L),
+         d1d = str_sub(document1, 5L, 14L),
+         d2d = str_sub(document2, 5L, 14L)) %>% 
+  filter(d1p == "AfD" & d2p == "CDU") %>% 
+  filter(d1d == d2d) %>% 
+  mutate(mon = lubridate::ymd(d1d))
+
+ggplot(simil_mon, aes(mon, correlation))+
+  geom_line()+
+  geom_smooth()
+```
+
+

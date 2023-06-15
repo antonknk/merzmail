@@ -2,7 +2,7 @@
 #
 # Author:   Anton Könneke 
 #
-# DESCRIPTION
+# Scrape AfD Party Press Releases
 #
 # CREATED: 2023-06-05
 #

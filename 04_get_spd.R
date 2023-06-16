@@ -40,13 +40,9 @@ get_urls <- function(pages){
     bind_rows()
 }
 
-spd_urls <- get_urls(pages = c(1:162))
-# forgot most current page
-spd_urls2 <- get_urls(pages = "")
-spd_urls2$page_number = 0
-spd_urls2 <- spd_urls2 %>% 
+spd_urls <- get_urls(pages = c("", c(1:162)))
+spd_urls <- spd_urls %>% 
   mutate(urls = paste0("https://www.spdfraktion.de", urls))
-spd_urls_all <- bind_rows(spd_urls2, spd_urls)
 # SCAPRE ARTICLES --------------------------------------------------------------
 get_articles <- function(urls) {
   lapply(urls, function(url){
@@ -101,10 +97,7 @@ get_articles <- function(urls) {
 
 # actually scrape it 
 tic()
-spd_articles100 <- get_articles(urls = spd_urls_all$urls[1:100])
+spd_articles <- get_articles(urls = spd_urls$urls)
 toc()
 
-tic()
-spd_articles101to500 <- get_articles(urls = spd_urls_all$urls[101:500])
-toc()
 

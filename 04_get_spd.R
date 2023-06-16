@@ -192,6 +192,8 @@ get_articles <- function(urls) {
 
 spd_press_releases <- get_articles(press_urls$urls)
 
-spd_press_releases %>% 
+spd_press_releases <- spd_press_releases %>% 
   unnest_wider(meta, names_sep = "_") %>% 
-  unnest_wider(authors, names_sep = "_") %>% View()
+  unnest_wider(authors, names_sep = "_") 
+
+write_csv(spd_press_releases, "texts/spd_press_releases.csv")

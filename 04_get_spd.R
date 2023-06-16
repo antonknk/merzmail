@@ -45,14 +45,19 @@ spd_urls <- spd_urls %>%
   mutate(urls = paste0("https://www.spdfraktion.de", urls))
 # SCAPRE ARTICLES --------------------------------------------------------------
 get_articles <- function(urls) {
+  length <- length(urls)
+  counter <- 0
   lapply(urls, function(url){
     print(url)
+    counter <<- counter + 1
+    print(paste0("Scrape Article ", counter, " of ", length, sep = " "))
+    
     html <- read_html(url)
     article <- list()
     
     Sys.sleep(1)
     
-    article$author <- html %>% 
+    article$headline <- html %>% 
       html_element("article") %>% 
       html_element("h2") %>% 
       html_text()
@@ -94,10 +99,4 @@ get_articles <- function(urls) {
   }) %>% 
  bind_rows() 
 }
-
-# actually scrape it 
-tic()
-spd_articles <- get_articles(urls = spd_urls$urls)
-toc()
-
-
+spd_articlesA <- get_articles(urls = spd_urls$urls)

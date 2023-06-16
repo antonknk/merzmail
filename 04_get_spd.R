@@ -43,6 +43,7 @@ get_urls <- function(pages){
 spd_urls <- get_urls(pages = c("", c(1:162)))
 spd_urls <- spd_urls %>% 
   mutate(urls = paste0("https://www.spdfraktion.de", urls))
+
 # SCAPRE ARTICLES --------------------------------------------------------------
 get_articles <- function(urls) {
   length <- length(urls)
@@ -99,4 +100,98 @@ get_articles <- function(urls) {
   }) %>% 
  bind_rows() 
 }
-spd_articlesA <- get_articles(urls = spd_urls$urls)
+
+spd_articles <- get_articles(urls = spd_urls$urls)
+
+write_csv(spd_articles, "texts/spd_articles.csv")
+
+# PRESS STATEMENTS -------------------------------------------------------------
+get_press_urls <- function(pages){
+  lapply(pages, function(page){
+    url <- paste0("https://www.spdfraktion.de/presse/pressemitteilungen?page=", page)
+    
+    Sys.sleep(2)
+    html <-  read_html(url)
+    
+    # extract urls
+    page_urls <- html %>% 
+      html_elements(".view-content") %>% 
+      html_elements("h3") %>% 
+      html_elements("a") %>% 
+      html_attr("href")
+    
+    result <- tibble(page_number = page,
+                     urls = page_urls)
+    
+    return(result)
+  }) %>% 
+    bind_rows()
+}
+
+press_urls <- get_press_urls(pages = c("", c(1:41)))
+
+press_urls <- press_urls %>% 
+  mutate(urls = paste0("https://www.spdfraktion.de", urls))
+
+# function to get press releases
+# SCAPRE ARTICLES --------------------------------------------------------------
+get_articles <- function(urls) {
+  length <- length(urls)
+  counter <- 0
+  lapply(urls, function(url){
+    print(url)
+    counter <<- counter + 1
+    print(paste0("Scrape Article ", counter, " of ", length, sep = " "))
+    
+    html <- read_html(url)
+    article <- list()
+    
+    Sys.sleep(.3)
+    
+    article$title <- html %>% 
+      html_element("article") %>% 
+      html_element("h1") %>% 
+      html_text()
+    
+    # fulltext
+    article$fulltext <- html %>% 
+      html_element("article") %>% 
+      html_element(".maintext") %>% 
+      html_text2()
+    
+    # promt
+    article$prompt <- html %>% 
+      html_element("article") %>% 
+      html_element(".maintext") %>% 
+      html_element("p:nth-child(1)") %>% 
+      html_text()
+    
+    # authors
+    article$authors <- html %>% 
+      html_element("article") %>% 
+      html_element(".maintext") %>% 
+      html_elements("em") %>% 
+      html_text() %>% 
+      list()
+    
+    article$meta <- html %>%
+      html_element("article") %>%
+      html_element("#main-image-aside") %>%
+      html_element("dl") %>%
+      html_elements("dd") %>%
+      html_text() %>% 
+      list()
+    
+    article$url <- url
+    
+    return(article)
+    
+  }) %>% 
+    bind_rows() 
+}
+
+spd_press_releases <- get_articles(press_urls$urls)
+
+spd_press_releases %>% 
+  unnest_wider(meta, names_sep = "_") %>% 
+  unnest_wider(authors, names_sep = "_") %>% View()

@@ -17,7 +17,7 @@ imported and combined into a quanteda document.
 ```{r setup}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 library(pacman)
-p_load(tidyverse, quanteda, quanteda.textstats, readtext)
+p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels)
 cdu <- read_csv("texts/cdu_articles.csv")
 afd <- read_csv("texts/afd_articles.csv")
 ```
@@ -35,6 +35,7 @@ head(cdu)
 For the CDU we also have a subtitle and a primer. We care only for the date and the fulltext for now, 
 but in order to make the data extendable, all column names should be harmonised by now already.
 
+
 ```{r}
 colnames(afd)
 colnames(cdu)
@@ -42,6 +43,12 @@ colnames(cdu)
 cdu <- cdu %>% 
   rename(fulltext = text)
 ```
+
+Let's also add the spd.
+```{r}
+
+```
+
 
 We also need to convert the strings holding the dates to date variables.
 ```{r}
@@ -122,7 +129,7 @@ press_tok <- tokens_remove(
 )
 press_dfmat <- dfm(press_tok) %>% 
               dfm_trim(min_termfreq = 10, termfreq_type = "count",
-                       max_docfreq = 0.1, docfreq_type = "prop")
+                       max_docfreq = 0.05, docfreq_type = "prop")
 ```
 
 
@@ -169,4 +176,49 @@ ggplot(simil_mon, aes(mon, correlation))+
   geom_smooth()
 ```
 
+
+```{r wordfish}
+press_dfmat <- dfm(press_tok) %>% 
+              dfm_trim(min_termfreq = 10, termfreq_type = "count",
+                       max_docfreq = 0.05, docfreq_type = "prop")
+
+press_dfmat <- dfm_subset(press_dfmat, date > as.Date("2020-01-01"))
+press_dfmat$party_mon = paste(press_dfmat$source, press_dfmat$month, sep = "_")
+
+wf <- quanteda.textmodels::textmodel_wordfish(
+  x = dfm_group(press_dfmat, groups = party_mon),
+  dir = c(1,2))
+
+quanteda.textplots::textplot_scale1d(wf, margin = "documents")
+quanteda.textplots::textplot_scale1d(wf, margin = "features",
+                                     highlighted = c("impfzwang", "muezzins",
+                                                     "masseneinwanderung",
+                                                     "steuerwettbewerb",
+                                                     "schutzmaßnahmen",
+                                                     "asyl",
+                                                     "antifa",
+                                                     "cancel"))
+
+str(wf)
+
+tibble(
+  psi = wf$psi,
+  beta = wf$beta,
+  features = wf$features) %>% 
+  arrange((beta))
+
+tibble(
+  doc = wf$docs,
+  theta  = wf$theta,
+  se = wf$se.theta,
+  date = wf$x@docvars$month,
+  party = wf$x@docvars$source
+) %>% 
+  mutate(hi = theta + (se*1.96),
+         lo = theta - (se*1.96)) %>% 
+  ggplot(aes(date, theta, shape = party, color = party,
+             ymin = lo, ymax = hi))+
+  geom_pointrange()+
+  theme_bw()
+```
 

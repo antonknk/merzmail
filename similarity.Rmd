@@ -17,7 +17,7 @@ imported and combined into a quanteda document.
 ```{r setup}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 library(pacman)
-p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels)
+p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels, ggforce, grid)
 cdu <- read_csv("texts/cdu_articles.csv")
 afd <- read_csv("texts/afd_articles.csv")
 ```
@@ -46,7 +46,19 @@ cdu <- cdu %>%
 
 Let's also add the spd.
 ```{r}
+spd <- data.table::fread("texts/spd_press_releases.csv")
+# remove author names
+spd_authors <- c(spd$authors_1, spd$authors_2, spd$authors_3, spd$authors_4,
+                 spd$authors_5, spd$authors_6, spd$authors_7, spd$authors_8) %>% 
+  unique()
+spd_authors <- spd_authors[!is.na(spd_authors)]
 
+spd <- spd %>% 
+  mutate(url = url,
+         date = as.Date(meta_1, format= "%d.%m.%Y"),
+         fulltext = fulltext) %>% 
+  select(url, date, fulltext)
+spd
 ```
 
 
@@ -70,8 +82,9 @@ Now we can now merge the two datasets together.
 ```{r merge}
 cdu$source = "CDU"
 afd$source = "AfD"
+spd$source = "SPD"
 
-press_rel <- bind_rows(cdu, afd)
+press_rel <- bind_rows(cdu, afd, spd)
 ```
 
 By adding an identifier for the month, we can later on compare trends over time 
@@ -199,7 +212,7 @@ quanteda.textplots::textplot_scale1d(wf, margin = "features",
                                                      "antifa",
                                                      "cancel"))
 
-str(wf)
+
 
 tibble(
   psi = wf$psi,
@@ -219,6 +232,23 @@ tibble(
   ggplot(aes(date, theta, shape = party, color = party,
              ymin = lo, ymax = hi))+
   geom_pointrange()+
-  theme_bw()
+  theme_bw()+
+  annotate(
+    "curve",
+    xend = as.Date("2022-01-15"),
+    yend = -0.25,
+    x = as.Date("2022-07-10"),
+    y = 0.25,
+    curvature = .5,
+    arrow = arrow()
+  ) +
+  annotate(
+    "text",
+    x = as.Date("2022-07-10"),
+    y = 0.1,
+    label  = "Friedrich Merz\nwird CDU-Vorsitzender",
+    hjust = "left",
+    vjust = "bottom"
+  ) 
 ```
 

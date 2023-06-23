@@ -125,7 +125,8 @@ get_greensbt_articles <- function(urls) {
     
     # fulltext
     article$fulltext <- html %>%
-      html_elements("article > div > div > section > section > div > div > div > p:not(:nth-child(1))")  %>%
+      # html_elements("article > div > div > section > section > div > div > div > p:not(:nth-child(1))")  %>%
+      html_elements("article > div > div > section > section > div > div > div > p") %>% 
       html_text2() %>%
       str_flatten() %>%
       str_squish()
@@ -171,4 +172,4 @@ get_greensbt_articles <- function(urls) {
     bind_rows()
 }
 
-t <- get_greensbt_articles(green_urls[1:3])
+

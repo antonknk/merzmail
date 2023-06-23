@@ -101,7 +101,7 @@ Lets start by simply examining the activity of both parties over time:
 ```{r frequency}
 party_colors <- 
   scale_color_manual("Party",
-                     values = c("AfD" = "#009ee0", "CDU" =  "black"))
+                     values = c("AfD" = "#009ee0", "CDU" =  "black", "SPD" = "red"))
 
 press_rel %>% 
   filter(month >= lubridate::ymd("2021-01-01")) %>% 
@@ -232,10 +232,11 @@ tibble(
   ggplot(aes(date, theta, shape = party, color = party,
              ymin = lo, ymax = hi))+
   geom_pointrange()+
+  geom_smooth(se = F)+
   theme_bw()+
   annotate(
     "curve",
-    xend = as.Date("2022-01-15"),
+    xend = as.Date("2021-12-17"),
     yend = -0.25,
     x = as.Date("2022-07-10"),
     y = 0.25,
@@ -245,10 +246,11 @@ tibble(
   annotate(
     "text",
     x = as.Date("2022-07-10"),
-    y = 0.1,
+    y = 0.25,
     label  = "Friedrich Merz\nwird CDU-Vorsitzender",
     hjust = "left",
     vjust = "bottom"
-  ) 
+  ) +
+  party_colors
 ```
 

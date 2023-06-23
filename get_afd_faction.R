@@ -84,7 +84,7 @@ get_afdbt_articles <- function(urls) {
         html_element(".post-content") %>%
         html_element("a") %>%
         html_text() %>%
-        str_detect(pattern = "Zur Anfrage und Antwort der Bundesregierung") &
+        str_detect(pattern = "Zur Anfrage und Antwort der Bundesregierung|Zum Antrag") &
         html %>%
         html_element(".post-content") %>%
         html_element("a") %>%
@@ -153,7 +153,7 @@ get_afdbt_articles <- function(urls) {
     
     
     # after scraping four pages, wait
-    if (counter %% 3 == 0) {
+    if (counter %% 6 == 0) {
       Sys.sleep(2.2)
     }
     

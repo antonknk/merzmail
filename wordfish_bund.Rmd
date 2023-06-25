@@ -1,0 +1,222 @@
+---
+title: "wordfish_bund"
+author: "Anton Könneke"
+output:
+  html_document:
+    df_print: paged
+---
+
+This is an analysis of party positions over time that relies on party's press 
+releases and wordfish.
+
+# Data preperation
+I use the press releases of the bundestag factions of CDU, Greens, SPD and AfD for now. 
+All press releases were scraped from the respective websites and are available in this repo. 
+Before I conduct the analyses, stopwords, author's names and partynames should be
+deleted. The documents need to be harmonised with regards to covariates, mainly dates.
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(pacman)
+p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels, ggforce, grid)
+cdu <- read_csv("texts/cdu_articles.csv", show_col_types = FALSE)
+afd <- read_csv("texts/afdbt_articles.csv", show_col_types = FALSE)
+spd <- read_csv("texts/spd_press_releases.csv", show_col_types = FALSE)
+greens <- readRDS("texts/greensbt_press.RDS")
+```
+
+We can then take a first look at the data:
+```{r inspect_afd}
+lapply(list(cdu, afd, spd, greens), colnames)
+```
+There are different nameing conventions that should be harmonised. I mainly need
+ `date` and `fulltext`.
+```{r harmonise}
+# afd quiete annoyingly could not stick to a formating style....
+Sys.setlocale(locale = "de_DE") # for month recognition
+afd <- afd %>% 
+  select(date, date2, title, prompt, fulltext, url) %>% 
+  mutate(date3 = str_extract(fulltext, regex("(?<=Berlin,\\s)\\d+\\.\\s\\w*\\s\\d{4}")),
+         date4 = str_extract(prompt, regex("(?<=Berlin,\\s)\\d+(\\.\\s|\\s)\\w*\\s\\d{4}")),
+         date4 = ifelse(str_detect(date4, "\\."), 
+                        as.Date(str_extract(date4, "\\d+\\.\\s\\w*\\s\\d{4}"), format = "%e. %B %Y"),
+                        as.Date(str_extract(date4, "\\d+\\s\\w*\\s\\d{4}"), format = "%e %B %Y")),
+         date4 = as.Date(date4),
+         across(c(date, date2, date3), ~as.Date(str_extract(.x, "\\d+\\.\\s\\w*\\s\\d{4}"), format = "%e. %B %Y")),
+         date = coalesce(date, date2, date3, date4)) %>% 
+  select(!c(date2, date3, date4)) %>% 
+  mutate(author = str_extract(title, regex("^.*(?=\\:)")),
+         author = ifelse(str_detect(author, "\\:"), 
+                          str_extract(author, regex("^.*(?=\\:)")),
+                          author)) 
+
+afd_authors <- unique(afd$author)
+
+afd <- afd %>% 
+  select(url, date, fulltext)
+
+# its simpler for the cdu
+cdu <- cdu %>% 
+  rename(fulltext = text) %>% 
+  mutate(date = as.Date(date, "%e.%m.%Y")) %>% 
+  select(url, date, fulltext)
+
+# spd
+# store authornames in vector
+spd_authors <- c(spd$authors_1, spd$authors_2, spd$authors_3, spd$authors_4,
+                 spd$authors_5, spd$authors_6, spd$authors_7, spd$authors_8) %>% 
+  unique()
+spd_authors <- spd_authors[!is.na(spd_authors)]
+
+spd <- spd %>% 
+  mutate(url = url,
+         date = as.Date(meta_1, format= "%d.%m.%Y"),
+         fulltext = fulltext) %>% 
+  select(url, date, fulltext)
+
+
+# greens
+greens <- greens %>% 
+  mutate(date = as.Date(date, "%d.%m.%Y")) %>% 
+  select(url, date, fulltext)
+```
+
+
+Now we can now merge the two datasets together.
+```{r merge}
+cdu$source = "CDU"
+afd$source = "AfD"
+spd$source = "SPD"
+greens$source = "Greens"
+
+press_rel <- bind_rows(cdu, afd, spd, greens)
+```
+
+By adding an identifier for the month, we can later on compare trends over time 
+on a month-grouped dataset that will offer sufficient observations for relatively 
+stable estimations.
+
+```{r add_month}
+press_rel <- press_rel %>% 
+  mutate(month = lubridate::round_date(date, "month"))
+```
+
+# Frequency
+Lets start by simply examining the activity of both parties over time:
+```{r frequency}
+party_colors <- 
+  scale_color_manual("Party",
+                     values = c("AfD" = "#009ee0", "CDU" =  "black", "SPD" = "red",
+                                "Greens" = "forestgreen"))
+
+press_rel %>% 
+  filter(month >= lubridate::ymd("2021-01-01")) %>% 
+  summarise(n = n(), .by = c(month, source)) %>% 
+  ggplot(aes(month, n, color = source))+
+  geom_line(size = 1)+
+  party_colors+
+  theme_bw()
+```
+
+# Preprocessing
+```{r clean}
+press_corp <- corpus(press_rel, text_field = "fulltext")
+press_tok <-
+  tokens(
+    press_corp,
+    remove_punct = TRUE,
+    remove_numbers = TRUE,
+    remove_symbol = TRUE,
+    remove_separators = TRUE,
+    split_hyphens = T,
+    remove_urls = T
+  ) %>% 
+  tokens_tolower()
+press_tok <- tokens_remove(press_tok, pattern = c(stopwords("de")))
+
+# remove names from BT-Members
+mdbs <- btmembers::import_members()
+mdbs19_20wp <- mdbs$wp %>% 
+  filter(wp %in% c(19, 20)) %>% pull(id)
+
+mdb_names <- mdbs$namen %>%
+  filter(id %in% mdbs19_20wp) %>%
+  mutate(name = paste(vorname, nachname, sep = " ")) %>% 
+  pull(name) 
+
+mdb_names <- tokens(paste(mdb_names, collapse = " "),
+    remove_punct = TRUE,
+    remove_numbers = TRUE,
+    remove_symbol = TRUE,
+    remove_separators = TRUE
+  ) %>% tokens_tolower()
+
+press_tok <- press_tok %>% 
+  tokens_remove(mdb_names) %>% 
+  tokens_remove(c("cdu", "afd", "spd", "grüne", "fraktion", "sprecher"))
+
+press_dfmat <- dfm(press_tok) %>% 
+              dfm_trim(min_termfreq = 10, termfreq_type = "count",
+                       max_docfreq = 0.1, docfreq_type = "prop")
+```
+
+# Wordfish
+```{r wordfish}
+press_dfmat <- dfm_subset(press_dfmat, date > as.Date("2022-01-01"))
+press_dfmat$party_mon = paste(press_dfmat$source, press_dfmat$month, sep = "_")
+
+wf <- quanteda.textmodels::textmodel_wordfish(
+  x = dfm_group(press_dfmat, groups = party_mon),
+  dir = c(1,2))
+
+quanteda.textplots::textplot_scale1d(wf, margin = "documents")
+quanteda.textplots::textplot_scale1d(wf, margin = "features",
+                                     highlighted = c("impfzwang", "muezzins",
+                                                     "masseneinwanderung",
+                                                     "steuerwettbewerb",
+                                                     "schutzmaßnahmen",
+                                                     "asyl",
+                                                     "antifa",
+                                                     "cancel"))
+
+
+
+tibble(
+  psi = wf$psi,
+  beta = wf$beta,
+  features = wf$features) %>% 
+  arrange((beta))
+
+tibble(
+  doc = wf$docs,
+  theta  = wf$theta,
+  se = wf$se.theta,
+  date = wf$x@docvars$month,
+  party = wf$x@docvars$source
+) %>% 
+  mutate(hi = theta + (se*1.96),
+         lo = theta - (se*1.96)) %>% 
+  ggplot(aes(date, theta, shape = party, color = party,
+             ymin = lo, ymax = hi))+
+  geom_pointrange()+
+  geom_smooth(se = F)+
+  theme_bw()+
+  annotate(
+    "curve",
+    xend = as.Date("2021-12-17"),
+    yend = -0.25,
+    x = as.Date("2022-07-10"),
+    y = 0.25,
+    curvature = .5,
+    arrow = arrow()
+  ) +
+  annotate(
+    "text",
+    x = as.Date("2022-07-10"),
+    y = 0.25,
+    label  = "Friedrich Merz\nwird CDU-Vorsitzender",
+    hjust = "left",
+    vjust = "bottom"
+  ) +
+  party_colors
+```

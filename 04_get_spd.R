@@ -197,3 +197,31 @@ spd_press_releases <- spd_press_releases %>%
   unnest_wider(authors, names_sep = "_") 
 
 write_csv(spd_press_releases, "texts/spd_press_releases.csv")
+
+# add older PMs 
+baseurl <- "https://www.spdfraktion.de/presse/pressemitteilungen?s=&s_date%5Bdate%5D=&e_date%5Bdate%5D=&field_legislaturen=2&sort_by=created&sort_order=&items_per_page=100&page="
+spd_old_press_urls <- lapply(c(0:16), function(page){
+  url <- paste0(baseurl, page)
+  html <- read_html(url)
+  
+  # extract urls
+  page_urls <- html %>% 
+    html_elements("body") %>% 
+    html_elements("article") %>% 
+    html_elements("h3") %>% 
+    html_elements("a") %>% 
+    html_attr("href")
+  
+  Sys.sleep(2)
+  
+  result <- tibble(page_number = page,
+                   urls = page_urls)
+  return(result)
+}) %>% 
+  bind_rows(.id = "page")
+
+# scrape the old press releases
+spd_old_press_urls <- spd_old_press_urls %>% 
+  mutate(urls = paste0("https://www.spdfraktion.de", urls))
+
+spd_press_releases_old <- get_articles(spd_old_press_urls$urls)

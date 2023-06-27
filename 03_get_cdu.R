@@ -78,6 +78,7 @@ cdu_press %>%
   ggplot(aes(date))+
   geom_density()
 
+
 # scrape it
 get_cdu_articles <- function(urls) {
   articles <- lapply(urls, function(url){
@@ -115,14 +116,18 @@ get_cdu_articles <- function(urls) {
 cdu_press <- cdu_press %>% 
   mutate(url = paste0("https://www.cducsu.de", url))
 
-cdu_full <- get_cdu_articles(cdu_press$url)
+cdu_already_scraped <- read_csv("texts/cdu_articles.csv")
+cdu_press <- cdu_press %>% 
+  filter(!(url %in% cdu_already_scraped$url))
+
+cdu_articles_addition <- get_cdu_articles(cdu_press$url)
 
 # tidy and add author and date
-cdu_full <- cdu_full %>% 
+cdu_articles_addition <- cdu_articles_addition %>% 
   tibble() %>% 
   unnest_wider(1)
 
-cdu_articles <- left_join(cdu_press, cdu_full, by = "url")
+cdu_articles_addition <- left_join(cdu_press, cdu_articles_addition, by = "url")
 
 # save 
-write_csv(cdu_articles, "texts/cdu_articles.csv")
+write_csv(cdu_articles_addition, "texts/cdu_articles_addition.csv")

@@ -7,9 +7,7 @@
 # CREATED: 2023-06-23
 #
 # SETUP ------------------------------------------------------------------------
-pacman::p_load(tidyRSS, tidyverse, rvest, RSelenium)
-greens_rss <-
-  tidyRSS::tidyfeed("https://www.gruene-bundestag.de/presse/rss.xml")
+pacman::p_load(tidyverse, rvest, RSelenium)
 
 # SCRAPE INTERACTIVE GREENS PAGE --------------------------------------------------
 
@@ -19,7 +17,7 @@ greens_rss <-
 # Start a Selenium firefox browser
 driver <- rsDriver(
   browser = "firefox",
-  port = 4555L,
+  port = 4556L,
   verbose = FALSE,
   chromever = NULL
 )
@@ -29,13 +27,14 @@ remote_driver <- driver[["client"]]
 
 # Set URL
 url <- "https://www.gruene-bundestag.de/presse/pressestatements"
+# url <- "https://web.archive.org/web/20210926151127/https://www.gruene-bundestag.de/presse/"
 
 # Navigate to the webpage
 remote_driver$navigate(url)
 
 # accept cookies
 cookie_button <-
-  remote_driver$findElement(using = "css selector", "button.button")
+  remote_driver$findElement(using = "css selector", ".cn-banner__confirm")
 cookie_button$clickElement()
 
 load_more <- function(rd) {
@@ -43,7 +42,7 @@ load_more <- function(rd) {
   rd$executeScript("window.scrollTo(0, document.body.scrollHeight);", args = list())
   # Find the "Load more" button by its CSS selector and ...
   load_more_button <-
-    rd$findElement(using = "css selector", "button.button")
+    rd$findElement(using = "css selector", ".button__text")
   # ... click it
   load_more_button$clickElement()
   # give the website a moment to respond

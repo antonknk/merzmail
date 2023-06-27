@@ -130,4 +130,4 @@ press_releases <- bind_rows(left, spd, cdu, greens, afd, fdp) %>%
 press_releases %>% 
   with(., table(is.na(date), party))
 
-
+saveRDS(press_releases, "texts/press_releases.rds")

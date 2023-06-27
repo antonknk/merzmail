@@ -32,8 +32,7 @@ party_colors <-
                                 "fdp" = "yellow3"))
 
 press_releases <- press_releases %>% 
-  mutate(month = lubridate::floor_date(date, "month")) %>% 
-  filter(date >= lubridate::ymd("2021-09-01"))
+  mutate(month = lubridate::floor_date(date, "month"))
 press_releases %>% 
   filter(month >= lubridate::ymd("2020-10-01")) %>% 
   summarise(n = n(), .by = c(month, party)) %>% 
@@ -82,18 +81,20 @@ press_tok <- press_tok %>%
   tokens_remove(mdb_names) %>% 
   tokens_remove(c("cdu", "afd", "spd", "grüne", "fraktion", "sprecher", "fdp", "linke"))
 
-press_dfmat <- dfm(press_tok) %>% 
-              dfm_trim(min_termfreq = 10, termfreq_type = "count",
-                       max_docfreq = 0.025, docfreq_type = "prop")
 ```
 
 # Wordfish
 ```{r wordfish}
 # press_dfmat <- dfm_subset(press_dfmat, date > as.Date("2021-10-01"))
 press_dfmat$party_mon = paste(press_dfmat$party, press_dfmat$month, sep = "_")
+press_dfmat_oppo <- dfm_subset(press_dfmat, party %in% c("cdu/csu", "afd", "left"))
+
+press_dfmat_oppo <- press_dfmat_oppo %>% 
+              dfm_trim(min_termfreq = 5, termfreq_type = "count",
+                       max_docfreq = 0.5, docfreq_type = "prop")
 
 wf <- quanteda.textmodels::textmodel_wordfish(
-  x = dfm_group(press_dfmat, groups = party_mon),
+  x = dfm_group(press_dfmat_oppo, groups = party_mon),
   dir = c(1,2))
 
 quanteda.textplots::textplot_scale1d(wf, margin = "documents")

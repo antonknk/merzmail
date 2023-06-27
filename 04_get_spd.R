@@ -225,3 +225,9 @@ spd_old_press_urls <- spd_old_press_urls %>%
   mutate(urls = paste0("https://www.spdfraktion.de", urls))
 
 spd_press_releases_old <- get_articles(spd_old_press_urls$urls)
+spd_press_releases_old <- spd_press_releases_old %>% 
+  unnest_wider(meta, names_sep = "_") %>% 
+  unnest_wider(authors, names_sep = "_") 
+
+write_csv(spd_press_releases_old, "texts/spd_press_releases_old.csv")
+saveRDS(spd_press_releases_old, "texts/spd_press_releases_old.RDS")

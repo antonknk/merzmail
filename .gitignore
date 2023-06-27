@@ -4,3 +4,6 @@
 .Ruserdata
 .DS_Store
 *.RDS
+bgs_*
+/texts/cache
+archiveorg

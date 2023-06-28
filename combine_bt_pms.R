@@ -1,5 +1,5 @@
 # combine press releases
-p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels, ggforce, grid)
+pacman::p_load(tidyverse, quanteda, quanteda.textstats, readtext, quanteda.textmodels, ggforce, grid)
 
 # IMPORT -----------------------------------------------------------------------
 cdu <- read_csv("texts/cdu_articles.csv", show_col_types = FALSE)
@@ -35,7 +35,7 @@ cdu <- cdu %>%
     na.rm_text(primer),
     na.rm_text(fulltext)
   ),
-  collapse = " \n"))) %>% 
+  collapse = "\n"))) %>% 
   ungroup()
 
 spd <- spd %>% 
@@ -50,7 +50,7 @@ spd <- spd %>%
              c(na.rm_text(title),
                # prompt ist schon im fulltext
                na.rm_text(fulltext)),
-             collapse = " \n")),
+             collapse = "\n")),
            author = meta_5,
            topics = meta_6)  %>%
   ungroup() %>% 
@@ -65,7 +65,7 @@ greens <- greens %>%
       c(na.rm_text(title),
         # prompt ist schon im fulltext 
         na.rm_text(fulltext)),
-      collapse = " \n"
+      collapse = "\n"
     ))) %>% 
   ungroup() %>% 
   mutate(authors = map_chr(authors, .f = ~str_c(.x, collapse = ", ")),
@@ -74,9 +74,9 @@ greens <- greens %>%
 fdp <- fdp %>% 
   rowwise() %>% 
   mutate(alltext = str_flatten(
-    str_c(na.rm_text(title),
-          na.rm_text(fulltext),
-          collapse = " \n"
+    str_c(c(na.rm_text(title),
+          na.rm_text(fulltext)),
+          collapse = "\n"
   ))) %>% 
   ungroup() %>% 
   mutate(date = as.Date(date, "%d.%m.%Y")) 
@@ -100,20 +100,19 @@ afd <- afd %>%
          primer = prompt) %>% 
   rowwise() %>% 
   mutate(alltext = str_flatten(
-    str_c(na.rm_text(title),
-          na.rm_text(primer),
-          na.rm_text(fulltext),
-          collapse = " \n"
-    ))) %>% 
+    str_c(c(na.rm_text(title),
+            na.rm_text(primer),
+            na.rm_text(fulltext)),
+          collapse = "\n"))) %>% 
   ungroup() 
 
 left <- left %>% 
   mutate(date = as.Date(date, "%d. %b %Y")) %>% 
   rowwise() %>% 
   mutate(alltext = str_flatten(
-    str_c(na.rm_text(title),
-          na.rm_text(fulltext),
-          collapse = " \n"
+    str_c(c(na.rm_text(title),
+          na.rm_text(fulltext)),
+          collapse = "\n"
     ))) %>% 
   ungroup() 
 
